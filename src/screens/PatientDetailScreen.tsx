@@ -19,6 +19,8 @@ import DentalRecordsSection from "../components/DentalRecordsSection";
 import PaymentsSection from "../components/PaymentsSection";
 import { ActivityIndicator } from "react-native-paper";
 import { Patient } from "../types";
+import { useDataRefresh } from '../contexts/DataContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PatientDetailScreen = ({
   route,
@@ -29,13 +31,20 @@ const PatientDetailScreen = ({
 }) => {
   const { patientId } = route.params;
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [patient, setPatient] = useState<Patient>();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
 
   useEffect(() => {
     fetchPatient();
-  }, [patientId]);
+  }, [patientId, refreshTrigger]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchPatient();
+    }, [patientId, refreshTrigger])
+  );
 
   const fetchPatient = async () => {
     try {

@@ -1,0 +1,25 @@
+{
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal"
+    },
+    "preview2": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "SUPABASE_URL": "https://ikuglyxtxgbadxvibahi.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdWdseXh0eGdiYWR4dmliYWhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTYwMDQsImV4cCI6MjA3MDU5MjAwNH0.Mg-RbAZTes2E5AB7uPhq8FQoPmXVhC8adN3XJkMxYrQ"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

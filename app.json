@@ -4,7 +4,7 @@
     "slug": "x-clinic",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/X-CLINIC.png",
     "splash": {
       "image": "./assets/X-CLINIC.png",
       "resizeMode": "contain",
@@ -13,25 +13,44 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.xclinic"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
-      },
-      "package": "com.yourcompany.xclinic",
-      "versionCode": 1
+      "bundleIdentifier": "com.gcastillo1901.xclinic",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Necesitamos acceso a la cámara para tomar fotos de pacientes",
+        "NSPhotoLibraryUsageDescription": "Necesitamos acceso a la galería para seleccionar fotos de pacientes"
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/X-CLINIC.png"
     },
+
     "extra": {
+      "eas": {
+        "projectId": "6edd7c9b-45b8-4cc6-83c0-4f59a3976ac2"
+      },
       "supabaseUrl": "https://ikuglyxtxgbadxvibahi.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdWdseXh0eGdiYWR4dmliYWhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTYwMDQsImV4cCI6MjA3MDU5MjAwNH0.Mg-RbAZTes2E5AB7uPhq8FQoPmXVhC8adN3XJkMxYrQ"
+    },
+    "owner": "gcastillo1901",
+    "android": {
+      "package": "com.gcastillo1901.xclinic",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/X-CLINIC.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE"
+      ]
     }
   }
 }

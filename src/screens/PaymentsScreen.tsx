@@ -7,9 +7,12 @@ import { supabase } from '../services/supabase';
 import PaymentCard from '../components/PaymentCard';
 import DateRangePicker from '../components/DateRangePicker';
 import { Payment } from '../types';
+import { useDataRefresh } from '../contexts/DataContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({
@@ -22,7 +25,15 @@ const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
     if (session) {
       fetchPayments();
     }
-  }, [session, dateRange]);
+  }, [session, dateRange, refreshTrigger]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session) {
+        fetchPayments();
+      }
+    }, [session, dateRange, refreshTrigger])
+  );
 
   const fetchPayments = async () => {
     try {

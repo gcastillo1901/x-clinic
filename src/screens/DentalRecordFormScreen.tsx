@@ -64,10 +64,16 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
     { label: "Faltante", value: "missing" },
   ];
 
-  const toothNumbers = Array.from({ length: 32 }, (_, i) => {
-    const toothNum = i < 16 ? 18 - i : 48 - (i - 16);
-    return { label: `Diente ${toothNum}`, value: toothNum };
-  });
+  const toothNumbers = [
+    // Cuadrante 1 (Superior derecho): 11-18
+    ...Array.from({ length: 8 }, (_, i) => ({ label: `Diente ${11 + i}`, value: 11 + i })),
+    // Cuadrante 2 (Superior izquierdo): 21-28
+    ...Array.from({ length: 8 }, (_, i) => ({ label: `Diente ${21 + i}`, value: 21 + i })),
+    // Cuadrante 3 (Inferior izquierdo): 31-38
+    ...Array.from({ length: 8 }, (_, i) => ({ label: `Diente ${31 + i}`, value: 31 + i })),
+    // Cuadrante 4 (Inferior derecho): 41-48
+    ...Array.from({ length: 8 }, (_, i) => ({ label: `Diente ${41 + i}`, value: 41 + i }))
+  ];
 
   const [showNextAppointmentPicker, setShowNextAppointmentPicker] = useState(false);
 const [nextAppointmentDate, setNextAppointmentDate] = useState<Date | null>(null);

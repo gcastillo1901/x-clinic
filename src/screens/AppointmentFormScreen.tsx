@@ -9,6 +9,7 @@ import { supabase } from '../services/supabase';
 import { Picker } from '@react-native-picker/picker';
 import PatientPicker from '../components/PatientPicker';
 import { Patient, Appointment } from '../types';
+import { scheduleAppointmentReminder } from '../services/notificationService';
 
 interface AppointmentFormScreenProps {
   route: any;
@@ -77,6 +78,7 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
       setValue('patient_id', data.patient_id);
       setValue('date', new Date(data.date));
       setValue('duration', data.duration);
+      setValue('status', data.status || 'scheduled');
       setValue('reason', data.reason || '');
       setValue('notes', data.notes || '');
     } catch (error) {
@@ -135,11 +137,29 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
         Alert.alert('Éxito', 'Cita actualizada correctamente');
       } else {
         // Crear nueva cita
-        const { error } = await supabase
+        const { data: newAppointment, error } = await supabase
           .from('appointments')
-          .insert(appointmentData);
+          .insert(appointmentData)
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Programar recordatorio de notificación
+        try {
+          const { data: patient } = await supabase
+            .from('patients')
+            .select('full_name')
+            .eq('id', data.patient_id)
+            .single();
+            
+          if (patient) {
+            await scheduleAppointmentReminder(newAppointment, patient);
+          }
+        } catch (notificationError) {
+          console.error('Error scheduling notification:', notificationError);
+        }
+        
         Alert.alert('Éxito', 'Cita creada correctamente');
       }
 
@@ -185,8 +205,10 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
 
       <ScrollView 
         style={styles.formContainer} 
+        contentContainerStyle={styles.scrollContent}
         nestedScrollEnabled={true}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
 
       <View style={styles.formGroup}>
@@ -282,6 +304,28 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
               onChangeText={onChange}
               placeholder="Ej: Limpieza dental, revisión general..."
             />
+          )}
+        />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Estado</Text>
+        <Controller
+          control={control}
+          name="status"
+          render={({ field: { value, onChange } }) => (
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={value}
+                onValueChange={onChange}
+                style={styles.picker}
+                itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
+              >
+                <Picker.Item label="Programada" value="scheduled" />
+                <Picker.Item label="Completada" value="completed" />
+                <Picker.Item label="Cancelada" value="canceled" />
+              </Picker>
+            </View>
           )}
         />
       </View>
@@ -388,12 +432,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     fontSize: 16,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   saveButton: {
     backgroundColor: '#3b82f6',
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
     marginTop: 20,
+    marginBottom: 40,
   },
   saveButtonText: {
     color: 'white',

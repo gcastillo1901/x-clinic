@@ -7,9 +7,12 @@ import { supabase } from '../services/supabase';
 import PatientCard from '../components/PatientCard';
 import SearchBar from '../components/SearchBar';
 import { Patient } from '../types';
+import { useDataRefresh } from '../contexts/DataContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PatientsScreen = ({ navigation }: {navigation: any;}) => {
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +22,15 @@ const PatientsScreen = ({ navigation }: {navigation: any;}) => {
     if (session) {
       fetchPatients();
     }
-  }, [session]);
+  }, [session, refreshTrigger]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session) {
+        fetchPatients();
+      }
+    }, [session, refreshTrigger])
+  );
 
   const fetchPatients = async () => {
     try {

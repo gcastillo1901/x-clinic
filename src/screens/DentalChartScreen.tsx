@@ -89,21 +89,24 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
         {!initialPatientId && patients.length > 0 && (
           <View style={styles.patientPickerContainer}>
             <Text style={styles.label}>Paciente:</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={selectedPatientId}
-                onValueChange={(itemValue) => setSelectedPatientId(itemValue)}
-                style={styles.picker}
-              >
-                {patients.map(patient => (
-                  <Picker.Item 
-                    key={patient.id} 
-                    label={patient.full_name} 
-                    value={patient.id} 
-                  />
-                ))}
-              </Picker>
-            </View>
+            <TouchableOpacity 
+              style={styles.patientSelector}
+              onPress={() => {
+                Alert.alert(
+                  'Seleccionar Paciente',
+                  'Elige un paciente',
+                  patients.map(patient => ({
+                    text: patient.full_name,
+                    onPress: () => setSelectedPatientId(patient.id)
+                  }))
+                );
+              }}
+            >
+              <Text style={styles.patientSelectorText}>
+                {patients.find(p => p.id === selectedPatientId)?.full_name || 'Seleccionar paciente'}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={24} color="#64748b" />
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -232,16 +235,21 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 8,
   },
-  pickerContainer: {
+  patientSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    overflow: 'hidden',
     backgroundColor: 'white',
-  },
-  picker: {
+    padding: 15,
     height: 50,
-    width: '100%',
+  },
+  patientSelectorText: {
+    fontSize: 16,
+    color: '#1e293b',
+    flex: 1,
   },
   chartContainer: {
     backgroundColor: 'white',

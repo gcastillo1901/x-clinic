@@ -8,10 +8,12 @@ import { supabase } from '../services/supabase';
 import AppointmentCard from '../components/AppointmentCard';
 import { Appointment } from '../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useDataRefresh } from '../contexts/DataContext';
 
 const AppointmentsScreen = () => {
   const navigation = useNavigation<any>();
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,7 @@ const AppointmentsScreen = () => {
     if (session) {
       fetchAppointments();
     }
-  }, [session, selectedDate]);
+  }, [session, selectedDate, refreshTrigger]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -34,22 +36,35 @@ const AppointmentsScreen = () => {
     try {
       setLoading(true);
       
+      // Crear fechas locales para evitar problemas de zona horaria
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
       
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
+      
+      // Formatear fechas para la consulta (YYYY-MM-DD)
+      const startDateStr = startOfDay.getFullYear() + '-' + 
+        String(startOfDay.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(startOfDay.getDate()).padStart(2, '0');
+      
+      const endDateStr = endOfDay.getFullYear() + '-' + 
+        String(endOfDay.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(endOfDay.getDate()).padStart(2, '0');
+
+      console.log('Fetching appointments for date range:', startDateStr, 'to', endDateStr);
 
       const { data, error } = await supabase
         .from('appointments')
         .select('*, patient:patients(full_name, phone)')
         .eq('clinic_id', session?.user.id)
-        .gte('date', startOfDay.toISOString())
-        .lte('date', endOfDay.toISOString())
+        .gte('date', startDateStr)
+        .lte('date', endDateStr + 'T23:59:59.999Z')
         .order('date');
 
       if (error) throw error;
 
+      console.log('Found appointments:', data?.length || 0);
       setAppointments(data || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -60,7 +75,10 @@ const AppointmentsScreen = () => {
   };
 
   const handleDayPress = (day: DateData) => {
-    setSelectedDate(new Date(day.dateString));
+    // Crear fecha local para evitar problemas de zona horaria
+    const [year, month, dayNum] = day.dateString.split('-').map(Number);
+    const localDate = new Date(year, month - 1, dayNum);
+    setSelectedDate(localDate);
   };
 
   const handleAddAppointment = () => {
@@ -69,6 +87,86 @@ const AppointmentsScreen = () => {
 
   const handleEditAppointment = (appointmentId: string) => {
     navigation.navigate('AppointmentForm', { appointmentId });
+  };
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    console.log('Canceling appointment:', appointmentId);
+    console.log('Current user ID:', session?.user?.id);
+    
+    try {
+      // Verificar que la cita existe y pertenece al usuario
+      const { data: existingAppointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', appointmentId)
+        .eq('clinic_id', session?.user.id)
+        .single();
+        
+      if (fetchError) {
+        console.error('Error fetching appointment:', fetchError);
+        throw fetchError;
+      }
+      
+      console.log('Existing appointment:', existingAppointment);
+      
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'canceled', updated_at: new Date().toISOString() })
+        .eq('id', appointmentId)
+        .select();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Update result:', data);
+      console.log('Appointment canceled successfully');
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error canceling appointment:', error);
+      Alert.alert('Error', 'No se pudo cancelar la cita');
+    }
+  };
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    console.log('Completing appointment:', appointmentId);
+    console.log('Current user ID:', session?.user?.id);
+    
+    try {
+      // Verificar que la cita existe y pertenece al usuario
+      const { data: existingAppointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', appointmentId)
+        .eq('clinic_id', session?.user.id)
+        .single();
+        
+      if (fetchError) {
+        console.error('Error fetching appointment:', fetchError);
+        throw fetchError;
+      }
+      
+      console.log('Existing appointment:', existingAppointment);
+      
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', appointmentId)
+        .select();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Update result:', data);
+      console.log('Appointment completed successfully');
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      Alert.alert('Error', 'No se pudo completar la cita');
+    }
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
@@ -114,10 +212,14 @@ const AppointmentsScreen = () => {
   return (
     <View style={styles.container}>
       <Calendar
-        current={selectedDate.toISOString().split('T')[0]}
+        current={selectedDate.getFullYear() + '-' + 
+          String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(selectedDate.getDate()).padStart(2, '0')}
         onDayPress={handleDayPress}
         markedDates={{
-          [selectedDate.toISOString().split('T')[0]]: { 
+          [selectedDate.getFullYear() + '-' + 
+           String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(selectedDate.getDate()).padStart(2, '0')]: { 
             selected: true,
             selectedColor: '#3b82f6'
           }
@@ -164,6 +266,9 @@ const AppointmentsScreen = () => {
               appointment={item} 
               onPress={() => handleEditAppointment(item.id)}
               onDelete={() => confirmDelete(item.id)}
+              onCancel={() => handleCancelAppointment(item.id)}
+              onComplete={() => handleCompleteAppointment(item.id)}
+              onEdit={() => handleEditAppointment(item.id)}
             />
           )}
           contentContainerStyle={styles.listContent}

@@ -19,7 +19,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../services/supabase";
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Patient } from "../types";
+import { useDataRefresh } from '../contexts/DataContext';
 
 interface PatientFormScreenProps {
   route: any;
@@ -31,8 +33,11 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
   navigation,
 }) => {
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
   const {
     control,
     handleSubmit,
@@ -54,6 +59,13 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
   useEffect(() => {
     if (route.params?.patient?.photo_url) {
       setImageUri(route.params.patient.photo_url);
+    }
+    if (route.params?.patient?.birth_date) {
+      // Parsear fecha de BD (YYYY-MM-DD) como fecha local
+      const [year, month, day] = route.params.patient.birth_date.split('-');
+      const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      setBirthDate(localDate);
+      setValue('birth_date', localDate.toLocaleDateString('es-ES'));
     }
   }, [route.params?.patient]);
 
@@ -121,7 +133,11 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
       if (data.birth_date) {
         const [day, month, year] = data.birth_date.split('/');
         if (day && month && year) {
-          birth_date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          // Crear fecha local y formatear para BD
+          const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          birth_date = localDate.getFullYear() + '-' + 
+            String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(localDate.getDate()).padStart(2, '0');
         }
       }
 
@@ -237,13 +253,34 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
           control={control}
           name="birth_date"
           render={({ field: { value, onChange } }) => (
-            <TextInput
-              style={styles.input}
-              value={value}
-              onChangeText={onChange}
-              placeholder="DD/MM/AAAA"
-              keyboardType="numbers-and-punctuation"
-            />
+            <>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <MaterialIcons name="calendar-today" size={20} color="#3b82f6" />
+                <Text style={styles.dateButtonText}>
+                  {value || 'Seleccionar fecha de nacimiento'}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={birthDate || new Date()}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      setBirthDate(selectedDate);
+                      // Crear fecha local para evitar problemas de zona horaria
+                      const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                      onChange(localDate.toLocaleDateString('es-ES'));
+                    }
+                  }}
+                />
+              )}
+            </>
           )}
         />
       </View>
@@ -479,6 +516,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    backgroundColor: 'white',
+  },
+  dateButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#1e293b',
+    flex: 1,
   },
 });
 
