@@ -16,6 +16,7 @@ import AppointmentFormScreen from "../screens/AppointmentFormScreen";
 import PatientFormScreen from "../screens/PatientFormScreen";
 import DentalRecordFormScreen from "../screens/DentalRecordFormScreen";
 import PaymentFormScreen from "../screens/PaymentFormScreen";
+import PaymentDetailScreen from "../screens/PaymentDetailScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -134,6 +135,11 @@ export const AppNavigator = () => {
             options={{ title: "Registro Dental" }}
           />
           <Stack.Screen name="PaymentForm" component={PaymentFormScreen} />
+          <Stack.Screen 
+            name="PaymentDetail" 
+            component={PaymentDetailScreen  as any}
+            options={{ title: "Detalle del Pago" }}
+          />
         </>
       )}
     </Stack.Navigator>

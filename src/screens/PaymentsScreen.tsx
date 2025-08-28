@@ -51,19 +51,12 @@ const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
 
       setPayments(data || []);
 
-      // Calcular total de ingresos
-      const { data: sumData } = await supabase
-        .from('payments')
-        .select('sum(amount)', { head: false })
-        .eq('clinic_id', session?.user.id)
-        .gte('payment_date', dateRange.startDate.toISOString())
-        .lte('payment_date', dateRange.endDate.toISOString());
-
-       const sum = Array.isArray(sumData) && sumData.length > 0
-  ? Number(sumData[0].sum) || 0
-  : 0;
-
-setTotalRevenue(sum);
+      // Calcular total de ingresos manualmente
+      const totalSum = (data || []).reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      setTotalRevenue(totalSum);
+      
+      console.log('Payments found:', data?.length || 0);
+      console.log('Total calculated:', totalSum);
     } catch (error) {
       console.error('Error fetching payments:', error);
     } finally {
