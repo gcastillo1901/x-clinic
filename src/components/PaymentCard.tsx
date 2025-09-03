@@ -11,7 +11,10 @@ interface PaymentCardProps {
 
 const PaymentCard: React.FC<PaymentCardProps> = ({ payment, onPress }) => {
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Extraer solo la parte de fecha para evitar problemas de timezone
+    const dateOnly = dateString.split('T')[0];
+    const [year, month, day] = dateOnly.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 

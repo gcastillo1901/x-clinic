@@ -11,9 +11,10 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "../services/supabase";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Appointment } from "../types";
 import { useDataRefresh } from "../contexts/DataContext";
+import MonthlyChart from "../components/MonthlyChart";
 
 const HomeScreen = () => {
   const navigation = useNavigation<any>();
@@ -36,10 +37,17 @@ const HomeScreen = () => {
     }
   }, [session, refreshTrigger]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session) {
+        fetchDashboardData();
+      }
+    }, [session, refreshTrigger])
+  );
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching dashboard data for clinic_id:', session?.user.id);
 
       // Obtener perfil del usuario
       const { data: profile, error: profileError } = await supabase
@@ -58,10 +66,8 @@ const HomeScreen = () => {
         .select("*", { count: "exact" })
         .eq("clinic_id", session?.user.id);
 
-      console.log('Patients count:', patients, 'Error:', patientsError);
 
       const currentDate = new Date().toISOString();
-      console.log('Current date for appointments filter:', currentDate);
       
       const { count: appointments, error: appointmentsError } = await supabase
         .from("appointments")
@@ -69,19 +75,23 @@ const HomeScreen = () => {
         .eq("clinic_id", session?.user.id)
         .gte("date", currentDate);
 
-      console.log('Appointments count:', appointments, 'Error:', appointmentsError);
 
+      // Obtener todos los pagos del mes actual
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       const { data: revenueData, error: revenueError } = await supabase
         .from("payments")
-        .select("amount")
+        .select("amount, payment_date")
         .eq("clinic_id", session?.user.id)
-        .gte("payment_date", new Date(new Date().setDate(1)).toISOString());
+        .gte("payment_date", startOfMonth.toISOString().split('T')[0]);
 
-      console.log('Revenue data:', revenueData, 'Error:', revenueError);
+      console.log('Revenue data:', revenueData);
+      console.log('Revenue error:', revenueError);
 
       // Luego calcular la suma manualmente:
       const totalRevenue =
         revenueData?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      
+      console.log('Total revenue calculated:', totalRevenue);
 
       // Obtener próximas citas
       const nextWeek = new Date();
@@ -96,7 +106,6 @@ const HomeScreen = () => {
         .order("date", { ascending: true })
         .limit(5);
 
-      console.log('Appointments data:', appointmentsData, 'Error:', appointmentsDataError);
 
       setStats({
         patients: patients || 0,
@@ -143,9 +152,7 @@ const HomeScreen = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            console.log("Logout button pressed");
             await signOut();
-            console.log("Logout completed");
           } catch (error) {
             console.error("Logout failed:", error);
             Alert.alert("Error", "No se pudo cerrar sesión");
@@ -208,7 +215,7 @@ const HomeScreen = () => {
                 },
               ]}
               onPress={() =>
-                navigation.navigate("AppointmentDetail", { id: appointment.id })
+                navigation.navigate("AppointmentFormScreen", { id: appointment.id })
               }
             >
               <View style={styles.appointmentTime}>
@@ -237,6 +244,9 @@ const HomeScreen = () => {
           <Text style={styles.emptyText}>No hay citas próximas</Text>
         </View>
       )}
+
+      {/* Gráfica mensual */}
+      <MonthlyChart />
     </ScrollView>
   );
 };

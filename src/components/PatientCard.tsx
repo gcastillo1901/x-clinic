@@ -11,21 +11,28 @@ interface PatientCardProps {
 
 const PatientCard: React.FC<PatientCardProps> = ({ patient, onPress }) => {
   const getInitials = (name: string) => {
+    if (!name || typeof name !== 'string') return 'N/A';
     return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
+
+  if (!patient || !patient.full_name) {
+    return null;
+  }
+
+  const cleanName = String(patient.full_name || '').trim() || 'Sin nombre';
+  const cleanPhone = String(patient.phone || '').trim() || 'Sin teléfono';
+  const cleanEmail = patient.email ? String(patient.email).trim() : '';
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitials(patient.full_name)}</Text>
+        <Text style={styles.avatarText}>{getInitials(cleanName)}</Text>
       </View>
-      
       <View style={styles.infoContainer}>
-        <Text style={styles.name}>{patient.full_name}</Text>
-        <Text style={styles.phone}>{patient.phone}</Text>
-        {patient.email && <Text style={styles.email}>{patient.email}</Text>}
+        <Text style={styles.name}>{cleanName}</Text>
+        <Text style={styles.phone}>{cleanPhone}</Text>
+        {cleanEmail ? <Text style={styles.email}>{cleanEmail}</Text> : null}
       </View>
-      
       <MaterialIcons name="chevron-right" size={24} color="#94a3b8" />
     </TouchableOpacity>
   );

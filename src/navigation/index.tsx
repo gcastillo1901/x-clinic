@@ -1,6 +1,7 @@
 // src/navigation/index.tsx
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from "../contexts/AuthContext";
 
 // Importar pantallas
@@ -23,7 +24,32 @@ const Stack = createStackNavigator();
 
 const MainTabs = () => {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
+    <Tab.Navigator 
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof MaterialIcons.glyphMap;
+
+          if (route.name === 'HomeTab') {
+            iconName = 'home';
+          } else if (route.name === 'PatientsTab') {
+            iconName = 'people';
+          } else if (route.name === 'AppointmentsTab') {
+            iconName = 'event';
+          } else if (route.name === 'DentalChartTab') {
+            iconName = 'local-hospital';
+          } else if (route.name === 'PaymentsTab') {
+            iconName = 'attach-money';
+          } else {
+            iconName = 'help';
+          }
+
+          return <MaterialIcons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#3b82f6',
+        tabBarInactiveTintColor: '#94a3b8',
+      })}
+    >
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
@@ -93,6 +119,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="DentalRecordForm"
             component={DentalRecordFormScreen}
+            options={{ title: "Formulario dental" }}
           />
           <Stack.Screen
             name="DentalChart"
@@ -134,10 +161,14 @@ export const AppNavigator = () => {
             component={DentalRecordFormScreen}
             options={{ title: "Registro Dental" }}
           />
-          <Stack.Screen name="PaymentForm" component={PaymentFormScreen} />
+          <Stack.Screen
+            name="PaymentForm"
+            component={PaymentFormScreen}
+            options={{ title: "Registro de Pagos" }}
+            />
           <Stack.Screen 
             name="PaymentDetail" 
-            component={PaymentDetailScreen  as any}
+            component={PaymentDetailScreen as any}
             options={{ title: "Detalle del Pago" }}
           />
         </>

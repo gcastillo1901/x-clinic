@@ -17,7 +17,7 @@ const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().setDate(1)), // Primer día del mes
-    endDate: new Date(), // Hoy
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), // Último día del mes
   });
   const [totalRevenue, setTotalRevenue] = useState(0);
 
@@ -39,13 +39,21 @@ const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
     try {
       setLoading(true);
       
+      console.log('Fetching payments with date range:', {
+        start: dateRange.startDate.toISOString().split('T')[0],
+        end: dateRange.endDate.toISOString().split('T')[0]
+      });
+      
       const { data, error } = await supabase
         .from('payments')
         .select('*, patient:patients(full_name), appointment:appointments(date)')
         .eq('clinic_id', session?.user.id)
-        .gte('payment_date', dateRange.startDate.toISOString())
-        .lte('payment_date', dateRange.endDate.toISOString())
+        .gte('payment_date', dateRange.startDate.toISOString().split('T')[0])
+        .lte('payment_date', dateRange.endDate.toISOString().split('T')[0])
         .order('payment_date', { ascending: false });
+
+      console.log('Payments data:', data);
+      console.log('Payments error:', error);
 
       if (error) throw error;
 
@@ -55,8 +63,6 @@ const PaymentsScreen = ({ navigation }: {navigation: any;}) => {
       const totalSum = (data || []).reduce((sum, payment) => sum + (payment.amount || 0), 0);
       setTotalRevenue(totalSum);
       
-      console.log('Payments found:', data?.length || 0);
-      console.log('Total calculated:', totalSum);
     } catch (error) {
       console.error('Error fetching payments:', error);
     } finally {

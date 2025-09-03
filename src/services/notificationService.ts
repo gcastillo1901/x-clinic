@@ -36,7 +36,6 @@ export const registerForPushNotifications = async (userId: string) => {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
-          allowAnnouncements: false,
         },
       });
       finalStatus = status;

@@ -7,9 +7,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 import PatientPicker from '../components/PatientPicker';
+import SearchablePatientPicker from '../components/SearchablePatientPicker';
 import { Patient, Appointment } from '../types';
 import { scheduleAppointmentReminder } from '../services/notificationService';
+import { useDataRefresh } from '../contexts/DataContext';
 
 interface AppointmentFormScreenProps {
   route: any;
@@ -18,6 +21,7 @@ interface AppointmentFormScreenProps {
 
 const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, navigation }) => {
   const { session } = useAuth();
+  const { triggerRefresh } = useDataRefresh();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -135,6 +139,7 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
 
         if (error) throw error;
         Alert.alert('Éxito', 'Cita actualizada correctamente');
+        triggerRefresh();
       } else {
         // Crear nueva cita
         const { data: newAppointment, error } = await supabase
@@ -149,7 +154,7 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
         try {
           const { data: patient } = await supabase
             .from('patients')
-            .select('full_name')
+            .select('id, full_name, clinic_id, phone, created_at, updated_at')
             .eq('id', data.patient_id)
             .single();
             
@@ -161,6 +166,7 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
         }
         
         Alert.alert('Éxito', 'Cita creada correctamente');
+        triggerRefresh();
       }
 
       navigation.goBack();
@@ -219,11 +225,20 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
           rules={{ required: 'Se requiere un paciente' }}
           render={({ field: { value, onChange }, fieldState: { error } }) => (
             <>
-              <PatientPicker
-                patients={patients}
-                selectedValue={value}
-                onValueChange={onChange}
-              />
+              {route.params?.patientId ? (
+                <PatientPicker
+                  patients={patients}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                />
+              ) : (
+                <SearchablePatientPicker
+                  patients={patients}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                  placeholder="Buscar y seleccionar paciente..."
+                />
+              )}
               {error && <Text style={styles.errorText}>{error.message}</Text>}
             </>
           )}
@@ -274,20 +289,18 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
           control={control}
           name="duration"
           render={({ field: { value, onChange } }) => (
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={value}
-                onValueChange={onChange}
-                style={styles.picker}
-                itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-              >
-                <Picker.Item label="30 minutos" value={30} />
-                <Picker.Item label="45 minutos" value={45} />
-                <Picker.Item label="60 minutos" value={60} />
-                <Picker.Item label="90 minutos" value={90} />
-                <Picker.Item label="120 minutos" value={120} />
-              </Picker>
-            </View>
+            <CustomPicker
+              items={[
+                { label: "30 minutos", value: 30 },
+                { label: "45 minutos", value: 45 },
+                { label: "60 minutos", value: 60 },
+                { label: "90 minutos", value: 90 },
+                { label: "120 minutos", value: 120 }
+              ]}
+              selectedValue={value}
+              onValueChange={onChange}
+              placeholder="Seleccionar duración..."
+            />
           )}
         />
       </View>
@@ -314,18 +327,16 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
           control={control}
           name="status"
           render={({ field: { value, onChange } }) => (
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={value}
-                onValueChange={onChange}
-                style={styles.picker}
-                itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-              >
-                <Picker.Item label="Programada" value="scheduled" />
-                <Picker.Item label="Completada" value="completed" />
-                <Picker.Item label="Cancelada" value="canceled" />
-              </Picker>
-            </View>
+            <CustomPicker
+              items={[
+                { label: "Programada", value: "scheduled" },
+                { label: "Completada", value: "completed" },
+                { label: "Cancelada", value: "canceled" }
+              ]}
+              selectedValue={value}
+              onValueChange={onChange}
+              placeholder="Seleccionar estado..."
+            />
           )}
         />
       </View>

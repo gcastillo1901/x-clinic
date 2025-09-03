@@ -19,6 +19,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../services/supabase";
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
+import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Patient } from "../types";
 import { useDataRefresh } from '../contexts/DataContext';
@@ -238,6 +239,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
                 value={value}
                 onChangeText={onChange}
                 placeholder="Nombre completo"
+                placeholderTextColor="#94a3b8"
               />
               {errors.full_name && (
                 <Text style={styles.errorText}>{errors.full_name.message}</Text>
@@ -291,19 +293,17 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
           control={control}
           name="gender"
           render={({ field: { value, onChange } }) => (
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={value}
-                onValueChange={onChange}
-                style={styles.picker}
-                itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-              >
-                <Picker.Item label="Seleccionar..." value={undefined} />
-                <Picker.Item label="Masculino" value="male" />
-                <Picker.Item label="Femenino" value="female" />
-                <Picker.Item label="Otro" value="other" />
-              </Picker>
-            </View>
+            <CustomPicker
+              items={[
+                { label: "Seleccionar...", value: undefined },
+                { label: "Masculino", value: "male" },
+                { label: "Femenino", value: "female" },
+                { label: "Otro", value: "other" }
+              ]}
+              selectedValue={value}
+              onValueChange={onChange}
+              placeholder="Seleccionar género..."
+            />
           )}
         />
       </View>
@@ -322,6 +322,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
                 onChangeText={onChange}
                 placeholder="Número de teléfono"
                 keyboardType="phone-pad"
+                placeholderTextColor="#94a3b8"
               />
               {errors.phone && (
                 <Text style={styles.errorText}>{errors.phone.message}</Text>
@@ -351,6 +352,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
                 placeholder="Correo electrónico"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                placeholderTextColor="#94a3b8"
               />
               {errors.email && (
                 <Text style={styles.errorText}>{errors.email.message}</Text>
@@ -371,6 +373,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
               value={value}
               onChangeText={onChange}
               placeholder="Dirección completa"
+              placeholderTextColor="#94a3b8"
             />
           )}
         />
@@ -389,6 +392,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
               placeholder="Notas importantes sobre el paciente..."
               multiline
               textAlignVertical="top"
+              placeholderTextColor="#94a3b8"
             />
           )}
         />
@@ -477,6 +481,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: "white",
     fontSize: 16,
+    color: "#1e293b",
+    includeFontPadding: false,
   },
   pickerContainer: {
     borderColor: "#cbd5e1",

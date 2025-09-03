@@ -17,8 +17,11 @@ import { useForm, Controller } from "react-hook-form";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../services/supabase";
 import { Picker } from "@react-native-picker/picker";
+import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Payment } from '../types';
+import SearchablePatientPicker from '../components/SearchablePatientPicker';
+import { useDataRefresh } from '../contexts/DataContext';
 
 interface PaymentFormScreenProps {
   route: any;
@@ -30,6 +33,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
   navigation,
 }) => {
   const { session } = useAuth();
+  const { triggerRefresh } = useDataRefresh();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -50,7 +54,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
       amount: 0,
       currency: "NIO",
       payment_method: "cash",
-      payment_date: new Date().toISOString(),
+      payment_date: new Date().toISOString().split('T')[0],
       notes: "",
       ...route.params?.payment,
     },
@@ -119,7 +123,11 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
     setShowDatePicker(false);
     if (selectedDate) {
       setPaymentDate(selectedDate);
-      setValue('payment_date', selectedDate.toISOString());
+      // Guardar solo la fecha sin timezone
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      setValue('payment_date', `${year}-${month}-${day}`);
     }
   };
 
@@ -127,6 +135,11 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
     try {
       setLoading(true);
 
+      // Asegurar que payment_date esté en formato YYYY-MM-DD
+      const paymentDateFormatted = typeof data.payment_date === 'string' 
+        ? data.payment_date.split('T')[0] 
+        : new Date(data.payment_date).toISOString().split('T')[0];
+      
       const paymentData = {
         patient_id: data.patient_id,
         clinic_id: session?.user.id,
@@ -134,9 +147,11 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
         amount: data.amount,
         currency: data.currency,
         payment_method: data.payment_method,
-        payment_date: data.payment_date,
+        payment_date: paymentDateFormatted,
         notes: data.notes || null,
       };
+      
+      console.log('Saving payment data:', paymentData);
 
       if (route.params?.payment?.id) {
         // Actualizar pago existente
@@ -147,6 +162,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
 
         if (error) throw error;
         Alert.alert("Éxito", "Pago actualizado correctamente");
+        triggerRefresh();
       } else {
         // Crear nuevo pago
         const { error } = await supabase
@@ -155,6 +171,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
 
         if (error) throw error;
         Alert.alert("Éxito", "Pago registrado correctamente");
+        triggerRefresh();
       }
 
       navigation.goBack();
@@ -194,23 +211,27 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <View style={styles.pickerContainer}>
-                  <Picker
+                {route.params?.patientId ? (
+                  <CustomPicker
+                    items={[
+                      { label: "Seleccionar paciente...", value: "" },
+                      ...patients.map(patient => ({
+                        label: patient.full_name,
+                        value: patient.id
+                      }))
+                    ]}
                     selectedValue={value}
                     onValueChange={onChange}
-                    style={styles.picker}
-                    itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  >
-                    <Picker.Item label="Seleccionar paciente..." value="" />
-                    {patients.map((patient) => (
-                      <Picker.Item
-                        key={patient.id}
-                        label={patient.full_name}
-                        value={patient.id}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                    placeholder="Seleccionar paciente..."
+                  />
+                ) : (
+                  <SearchablePatientPicker
+                    patients={patients}
+                    selectedValue={value}
+                    onValueChange={onChange}
+                    placeholder="Buscar y seleccionar paciente..."
+                  />
+                )}
                 {errors.patient_id && (
                   <Text style={styles.errorText}>{errors.patient_id.message}</Text>
                 )}
@@ -225,24 +246,18 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
             control={control}
             name="appointment_id"
             render={({ field: { value, onChange } }) => (
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={value}
-                  onValueChange={onChange}
-                  style={styles.picker}
-                  itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  enabled={appointments.length > 0}
-                >
-                  <Picker.Item label="Sin cita asociada" value="" />
-                  {appointments.map((appointment) => (
-                    <Picker.Item
-                      key={appointment.id}
-                      label={`${new Date(appointment.date).toLocaleDateString('es-ES')} - ${appointment.reason || 'Consulta'}`}
-                      value={appointment.id}
-                    />
-                  ))}
-                </Picker>
-              </View>
+              <CustomPicker
+                items={[
+                  { label: "Sin cita asociada", value: "" },
+                  ...appointments.map(appointment => ({
+                    label: `${new Date(appointment.date).toLocaleDateString('es-ES')} - ${appointment.reason || 'Consulta'}`,
+                    value: appointment.id
+                  }))
+                ]}
+                selectedValue={value}
+                onValueChange={onChange}
+                placeholder="Seleccionar cita..."
+              />
             )}
           />
         </View>
@@ -255,22 +270,15 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    style={styles.picker}
-                    itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  >
-                    {currencies.map((currency) => (
-                      <Picker.Item
-                        key={currency.value}
-                        label={currency.label}
-                        value={currency.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  items={currencies.map(currency => ({
+                    label: currency.label,
+                    value: currency.value
+                  }))}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                  placeholder="Seleccionar moneda..."
+                />
                 {errors.currency && (
                   <Text style={styles.errorText}>{errors.currency.message}</Text>
                 )}
@@ -299,6 +307,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
                     value={value?.toString() || ""}
                     onChangeText={(text) => onChange(parseFloat(text) || 0)}
                     placeholder="0.00"
+                    placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
                   />
                 </View>
@@ -318,22 +327,15 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    style={styles.picker}
-                    itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  >
-                    {paymentMethods.map((method) => (
-                      <Picker.Item
-                        key={method.value}
-                        label={method.label}
-                        value={method.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  items={paymentMethods.map(method => ({
+                    label: method.label,
+                    value: method.value
+                  }))}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                  placeholder="Seleccionar método..."
+                />
                 {errors.payment_method && (
                   <Text style={styles.errorText}>{errors.payment_method.message}</Text>
                 )}
@@ -386,6 +388,7 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
                 value={value}
                 onChangeText={onChange}
                 placeholder="Observaciones sobre el pago..."
+                placeholderTextColor="#94a3b8"
                 multiline
                 textAlignVertical="top"
               />
@@ -451,6 +454,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: "white",
     fontSize: 16,
+    color: "#1e293b",
+    includeFontPadding: false,
   },
   pickerContainer: {
     borderColor: "#cbd5e1",

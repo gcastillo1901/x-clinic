@@ -52,7 +52,6 @@ const AppointmentsScreen = () => {
         String(endOfDay.getMonth() + 1).padStart(2, '0') + '-' + 
         String(endOfDay.getDate()).padStart(2, '0');
 
-      console.log('Fetching appointments for date range:', startDateStr, 'to', endDateStr);
 
       const { data, error } = await supabase
         .from('appointments')
@@ -64,7 +63,6 @@ const AppointmentsScreen = () => {
 
       if (error) throw error;
 
-      console.log('Found appointments:', data?.length || 0);
       setAppointments(data || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -107,7 +105,6 @@ const AppointmentsScreen = () => {
         throw fetchError;
       }
       
-      console.log('Existing appointment:', existingAppointment);
       
       const { data, error } = await supabase
         .from('appointments')
@@ -147,7 +144,6 @@ const AppointmentsScreen = () => {
         throw fetchError;
       }
       
-      console.log('Existing appointment:', existingAppointment);
       
       const { data, error } = await supabase
         .from('appointments')

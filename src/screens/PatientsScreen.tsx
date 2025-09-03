@@ -43,8 +43,16 @@ const PatientsScreen = ({ navigation }: {navigation: any;}) => {
 
       if (error) throw error;
 
-      setPatients(data);
-      setFilteredPatients(data);
+      // Filtrar pacientes válidos
+      const validPatients = (data || []).filter(patient => 
+        patient && 
+        patient.id && 
+        patient.full_name && 
+        typeof patient.full_name === 'string'
+      );
+      
+      setPatients(validPatients);
+      setFilteredPatients(validPatients);
     } catch (error) {
       console.error('Error fetching patients:', error);
     } finally {
@@ -92,12 +100,19 @@ const PatientsScreen = ({ navigation }: {navigation: any;}) => {
       <FlatList
         data={filteredPatients}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PatientCard 
-            patient={item} 
-            onPress={() => navigation.navigate('PatientDetail', { patientId: item.id })}
-          />
-        )}
+        renderItem={({ item }) => {
+          // Validar que el item existe y tiene las propiedades necesarias
+          if (!item || !item.id || !item.full_name) {
+            return null;
+          }
+          
+          return (
+            <PatientCard 
+              patient={item} 
+              onPress={() => navigation.navigate('PatientDetail', { patientId: item.id })}
+            />
+          );
+        }}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

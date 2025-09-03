@@ -7,6 +7,7 @@ import { useDentalRecords } from '../hooks/useDentalRecords';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { Picker } from '@react-native-picker/picker';
+import SimplePatientPicker from '../components/SimplePatientPicker';
 
 const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const { patientId: initialPatientId } = route.params || {};
@@ -35,8 +36,8 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
       if (error) throw error;
       setPatients(data || []);
       
-      // Seleccionar el primer paciente por defecto si hay alguno
-      if (data && data.length > 0) {
+      // Solo seleccionar el primer paciente por defecto si no hay initialPatientId
+      if (data && data.length > 0 && !initialPatientId && !selectedPatientId) {
         setSelectedPatientId(data[0].id);
       }
     } catch (error) {
@@ -66,7 +67,8 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
     );
   }
 
-  if (!selectedPatientId) {
+  // Solo mostrar mensaje de "no paciente" si hay initialPatientId pero no selectedPatientId
+  if (initialPatientId && !selectedPatientId) {
     return (
       <View style={styles.noPatientContainer}>
         <Text style={styles.noPatientText}>No se ha seleccionado ningún paciente</Text>
@@ -81,42 +83,36 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled={true}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Odontograma</Text>
         <Text style={styles.subtitle}>Registros dentales del paciente</Text>
         
-        {!initialPatientId && patients.length > 0 && (
+        {!initialPatientId && (
           <View style={styles.patientPickerContainer}>
             <Text style={styles.label}>Paciente:</Text>
-            <TouchableOpacity 
-              style={styles.patientSelector}
-              onPress={() => {
-                Alert.alert(
-                  'Seleccionar Paciente',
-                  'Elige un paciente',
-                  patients.map(patient => ({
-                    text: patient.full_name,
-                    onPress: () => setSelectedPatientId(patient.id)
-                  }))
-                );
-              }}
-            >
-              <Text style={styles.patientSelectorText}>
-                {patients.find(p => p.id === selectedPatientId)?.full_name || 'Seleccionar paciente'}
-              </Text>
-              <MaterialIcons name="arrow-drop-down" size={24} color="#64748b" />
-            </TouchableOpacity>
+            <SimplePatientPicker
+              patients={patients}
+              selectedValue={selectedPatientId || ''}
+              onValueChange={setSelectedPatientId}
+              placeholder="Buscar paciente..."
+            />
           </View>
         )}
       </View>
 
-      <View style={styles.chartContainer}>
-        <DentalChart 
-          patientId={selectedPatientId} 
-          onToothPress={handleToothPress}
-        />
-      </View>
+      {selectedPatientId && (
+        <View style={styles.chartContainer}>
+          <DentalChart 
+            patientId={selectedPatientId} 
+            onToothPress={handleToothPress}
+          />
+        </View>
+      )}
 
       <View style={styles.legendContainer}>
         <Text style={styles.legendTitle}>Leyenda:</Text>
@@ -140,26 +136,28 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
         ))}
       </View>
 
-      <View style={styles.recordsContainer}>
-        <Text style={styles.sectionTitle}>Últimos Registros</Text>
-        {records.length > 0 ? (
-          records.slice(0, 5).map(record => (
-            <TouchableOpacity 
-              key={record.id} 
-              style={styles.recordCard}
-              onPress={() => navigation.navigate('DentalRecordDetail', { recordId: record.id })}
-            >
-              <Text style={styles.recordTooth}>Diente {record.tooth_number}</Text>
-              <Text style={styles.recordCondition}>{conditionLabel(record.condition)}</Text>
-              <Text style={styles.recordDate}>
-                {new Date(record.treatment_date).toLocaleDateString('es-ES')}
-              </Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.emptyRecordsText}>No hay registros para este paciente</Text>
-        )}
-      </View>
+      {selectedPatientId && (
+        <View style={styles.recordsContainer}>
+          <Text style={styles.sectionTitle}>Últimos Registros</Text>
+          {records.length > 0 ? (
+            records.slice(0, 5).map(record => (
+              <TouchableOpacity 
+                key={record.id} 
+                style={styles.recordCard}
+                onPress={() => navigation.navigate('DentalRecordDetail', { recordId: record.id })}
+              >
+                <Text style={styles.recordTooth}>Diente {record.tooth_number}</Text>
+                <Text style={styles.recordCondition}>{conditionLabel(record.condition)}</Text>
+                <Text style={styles.recordDate}>
+                  {new Date(record.treatment_date).toLocaleDateString('es-ES')}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyRecordsText}>No hay registros para este paciente</Text>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -229,6 +227,8 @@ const styles = StyleSheet.create({
   },
   patientPickerContainer: {
     marginTop: 15,
+    marginBottom: 20,
+    zIndex: 1000,
   },
   label: {
     fontSize: 16,

@@ -17,8 +17,10 @@ import { useForm, Controller } from "react-hook-form";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../services/supabase";
 import { Picker } from "@react-native-picker/picker";
+import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DentalRecord } from '../types';
+import SearchablePatientPicker from '../components/SearchablePatientPicker';
 
 interface DentalRecordFormScreenProps {
   route: any;
@@ -31,6 +33,7 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
 }) => {
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
   const {
     control,
     handleSubmit,
@@ -76,7 +79,26 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
   ];
 
   const [showNextAppointmentPicker, setShowNextAppointmentPicker] = useState(false);
-const [nextAppointmentDate, setNextAppointmentDate] = useState<Date | null>(null);
+  const [nextAppointmentDate, setNextAppointmentDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, full_name')
+        .eq('clinic_id', session?.user.id)
+        .order('full_name');
+
+      if (error) throw error;
+      setPatients(data || []);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
 
 const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
   setShowNextAppointmentPicker(false);
@@ -150,6 +172,30 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
         nestedScrollEnabled={true}
         showsVerticalScrollIndicator={false}
       >
+        {!route.params?.patientId && (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Paciente *</Text>
+            <Controller
+              control={control}
+              name="patient_id"
+              rules={{ required: "Este campo es obligatorio" }}
+              render={({ field: { value, onChange }, fieldState: { error } }) => (
+                <>
+                  <SearchablePatientPicker
+                    patients={patients}
+                    selectedValue={value}
+                    onValueChange={onChange}
+                    placeholder="Buscar y seleccionar paciente..."
+                  />
+                  {error && (
+                    <Text style={styles.errorText}>{error.message}</Text>
+                  )}
+                </>
+              )}
+            />
+          </View>
+        )}
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Número de diente *</Text>
           <Controller
@@ -158,22 +204,15 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    style={styles.picker}
-                    itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  >
-                    {toothNumbers.map((tooth) => (
-                      <Picker.Item
-                        key={tooth.value}
-                        label={tooth.label}
-                        value={tooth.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  items={toothNumbers.map(tooth => ({
+                    label: tooth.label,
+                    value: tooth.value
+                  }))}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                  placeholder="Seleccionar diente..."
+                />
                 {errors.tooth_number && (
                   <Text style={styles.errorText}>{errors.tooth_number.message}</Text>
                 )}
@@ -190,22 +229,15 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    style={styles.picker}
-                    itemStyle={Platform.OS === 'ios' ? styles.pickerItem : undefined}
-                  >
-                    {conditions.map((condition) => (
-                      <Picker.Item
-                        key={condition.value}
-                        label={condition.label}
-                        value={condition.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  items={conditions.map(condition => ({
+                    label: condition.label,
+                    value: condition.value
+                  }))}
+                  selectedValue={value}
+                  onValueChange={onChange}
+                  placeholder="Seleccionar condición..."
+                />
                 {errors.condition && (
                   <Text style={styles.errorText}>{errors.condition.message}</Text>
                 )}
