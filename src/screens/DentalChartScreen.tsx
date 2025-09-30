@@ -6,12 +6,14 @@ import { DentalChart } from '../components/DentalChart';
 import { useDentalRecords } from '../hooks/useDentalRecords';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
+import { useDataRefresh } from '../contexts/DataContext';
 import { Picker } from '@react-native-picker/picker';
 import SimplePatientPicker from '../components/SimplePatientPicker';
 
 const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const { patientId: initialPatientId } = route.params || {};
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(initialPatientId || null);
   const [patients, setPatients] = useState<any[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
@@ -22,7 +24,7 @@ const DentalChartScreen = ({ route, navigation }: { route: any; navigation: any 
     if (!initialPatientId && session) {
       fetchPatients();
     }
-  }, [initialPatientId, session]);
+  }, [initialPatientId, session, refreshTrigger]);
 
   const fetchPatients = async () => {
     try {

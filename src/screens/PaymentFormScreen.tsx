@@ -21,6 +21,7 @@ import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Payment } from '../types';
 import SearchablePatientPicker from '../components/SearchablePatientPicker';
+import DisabledPatientField from '../components/DisabledPatientField';
 import { useDataRefresh } from '../contexts/DataContext';
 
 interface PaymentFormScreenProps {
@@ -212,17 +213,8 @@ const PaymentFormScreen: React.FC<PaymentFormScreenProps> = ({
             render={({ field: { value, onChange } }) => (
               <>
                 {route.params?.patientId ? (
-                  <CustomPicker
-                    items={[
-                      { label: "Seleccionar paciente...", value: "" },
-                      ...patients.map(patient => ({
-                        label: patient.full_name,
-                        value: patient.id
-                      }))
-                    ]}
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    placeholder="Seleccionar paciente..."
+                  <DisabledPatientField
+                    patientName={patients.find(p => p.id === value)?.full_name || 'Paciente seleccionado'}
                   />
                 ) : (
                   <SearchablePatientPicker

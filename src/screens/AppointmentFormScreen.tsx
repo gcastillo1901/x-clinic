@@ -10,6 +10,7 @@ import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import PatientPicker from '../components/PatientPicker';
 import SearchablePatientPicker from '../components/SearchablePatientPicker';
+import DisabledPatientField from '../components/DisabledPatientField';
 import { Patient, Appointment } from '../types';
 import { scheduleAppointmentReminder } from '../services/notificationService';
 import { useDataRefresh } from '../contexts/DataContext';
@@ -80,7 +81,9 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
 
       // Establecer valores del formulario
       setValue('patient_id', data.patient_id);
-      setValue('date', new Date(data.date));
+      // Crear fecha local sin conversión UTC
+      const appointmentDate = new Date(data.date.replace('Z', ''));
+      setValue('date', appointmentDate);
       setValue('duration', data.duration);
       setValue('status', data.status || 'scheduled');
       setValue('reason', data.reason || '');
@@ -119,10 +122,19 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
     try {
       setLoading(true);
       
+      // Formatear fecha manteniendo zona horaria local
+      const localDate = typeof data.date === 'string' ? new Date(data.date) : data.date;
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      const hours = String(localDate.getHours()).padStart(2, '0');
+      const minutes = String(localDate.getMinutes()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+
       const appointmentData = {
         patient_id: data.patient_id,
         clinic_id: session?.user.id,
-        date: typeof data.date === 'string' ? data.date : data.date.toISOString(),
+        date: formattedDate,
         duration: data.duration,
         reason: data.reason,
         notes: data.notes,
@@ -226,10 +238,8 @@ const AppointmentFormScreen: React.FC<AppointmentFormScreenProps> = ({ route, na
           render={({ field: { value, onChange }, fieldState: { error } }) => (
             <>
               {route.params?.patientId ? (
-                <PatientPicker
-                  patients={patients}
-                  selectedValue={value}
-                  onValueChange={onChange}
+                <DisabledPatientField
+                  patientName={patients.find(p => p.id === value)?.full_name || 'Paciente seleccionado'}
                 />
               ) : (
                 <SearchablePatientPicker

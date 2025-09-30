@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
+import { useDataRefresh } from '../contexts/DataContext';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -16,96 +17,75 @@ interface ChartData {
   }[];
 }
 
-const MonthlyChart: React.FC = () => {
+const WeeklyChart: React.FC = () => {
   const { session } = useAuth();
+  const { refreshTrigger } = useDataRefresh();
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (session) {
-      fetchMonthlyData();
+      fetchWeeklyData();
     }
-  }, [session]);
+  }, [session, refreshTrigger]);
 
-  const fetchMonthlyData = async () => {
+  const fetchWeeklyData = async () => {
     try {
       setLoading(true);
       
       const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const currentDay = now.getDay(); // 0 = domingo, 1 = lunes, etc.
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - currentDay); // Ir al domingo de esta semana
       
-      // Crear arrays para todos los días del mes actual
-      const monthDays = [];
+      // Crear arrays para los 7 días de la semana
+      const weekDays = [];
       const labels = [];
+      const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
       
-      for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(currentYear, currentMonth, day);
-        monthDays.push(date.toISOString().split('T')[0]);
-        labels.push(day.toString());
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        weekDays.push(date.toISOString().split('T')[0]);
+        labels.push(dayNames[i]);
       }
       
-      const startOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const endOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      const startDate = weekDays[0];
+      const endDate = weekDays[6];
 
-      // Obtener pacientes nuevos del mes
-      const { data: patientsData } = await supabase
-        .from('patients')
-        .select('created_at')
-        .eq('clinic_id', session?.user.id)
-        .gte('created_at', startOfMonth)
-        .lte('created_at', endOfMonth + 'T23:59:59');
-
-      // Obtener citas del mes
+      // Obtener citas de la semana
       const { data: appointmentsData } = await supabase
         .from('appointments')
         .select('date')
         .eq('clinic_id', session?.user.id)
-        .gte('date', startOfMonth)
-        .lte('date', endOfMonth + 'T23:59:59');
+        .gte('date', startDate)
+        .lte('date', endDate + 'T23:59:59');
 
-      // Obtener ingresos del mes
+      // Obtener ingresos de la semana
       const { data: paymentsData } = await supabase
         .from('payments')
         .select('amount, payment_date')
         .eq('clinic_id', session?.user.id)
-        .gte('payment_date', startOfMonth)
-        .lte('payment_date', endOfMonth);
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
 
-      // Procesar datos por día del mes
-      const newPatientsPerDay = monthDays.map(date => {
-        return patientsData?.filter(p => 
-          p.created_at.startsWith(date)
-        ).length || 0;
-      });
-
-      const appointmentsPerDay = monthDays.map(date => {
+      const appointmentsPerDay = weekDays.map(date => {
         return appointmentsData?.filter(a => 
           a.date.startsWith(date)
         ).length || 0;
       });
 
-      const revenuePerDay = monthDays.map(date => {
+      const revenuePerDay = weekDays.map(date => {
         return paymentsData?.filter(p => 
           p.payment_date.startsWith(date)
         ).reduce((sum, p) => sum + p.amount, 0) || 0;
       });
-
-      console.log('New Patients Per Day:', newPatientsPerDay);
-      console.log('Appointments Per Day:', appointmentsPerDay);
-      console.log('Revenue Per Day:', revenuePerDay);
 
       // Normalizar ingresos (dividir por 100 para mejor visualización)
       const normalizedRevenue = revenuePerDay.map(r => Math.round(r / 100));
       setChartData({
         labels,
         datasets: [
-          {
-            data: newPatientsPerDay,
-            color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`, // Azul
-            strokeWidth: 2,
-          },
           {
             data: appointmentsPerDay,
             color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // Verde
@@ -128,7 +108,7 @@ const MonthlyChart: React.FC = () => {
   if (loading || !chartData) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Actividad del mes actual</Text>
+        <Text style={styles.title}>Actividad de la semana actual</Text>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Cargando gráfica...</Text>
         </View>
@@ -139,7 +119,7 @@ const MonthlyChart: React.FC = () => {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Actividad del mes actual</Text>
+        <Text style={styles.title}>Actividad de la semana actual</Text>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Gráfica disponible solo en móvil</Text>
         </View>
@@ -149,12 +129,12 @@ const MonthlyChart: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Actividad del mes actual</Text>
+      <Text style={styles.title}>Actividad de la semana actual</Text>
       
       <LineChart
         data={chartData}
-        width={screenWidth - 40}
-        height={220}
+        width={screenWidth - 70}
+        height={200}
         chartConfig={{
           backgroundColor: '#ffffff',
           backgroundGradientFrom: '#ffffff',
@@ -176,10 +156,6 @@ const MonthlyChart: React.FC = () => {
       
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: '#3b82f6' }]} />
-          <Text style={styles.legendText}>Pacientes nuevos</Text>
-        </View>
-        <View style={styles.legendItem}>
           <View style={[styles.legendColor, { backgroundColor: '#10b981' }]} />
           <Text style={styles.legendText}>Citas del día</Text>
         </View>
@@ -196,8 +172,9 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     borderRadius: 10,
-    padding: 15,
+    padding: 10,
     marginBottom: 20,
+    marginHorizontal: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -213,6 +190,7 @@ const styles = StyleSheet.create({
   chart: {
     marginVertical: 8,
     borderRadius: 16,
+    alignSelf: 'center',
   },
   legend: {
     flexDirection: 'row',
@@ -246,4 +224,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MonthlyChart;
+export default WeeklyChart;

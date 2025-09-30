@@ -18,6 +18,7 @@ import { useForm, Controller } from "react-hook-form";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../services/supabase";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from 'expo-file-system';
 import { Picker } from "@react-native-picker/picker";
 import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -34,7 +35,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
   navigation,
 }) => {
   const { session } = useAuth();
-  const { refreshTrigger } = useDataRefresh();
+  const { refreshTrigger, triggerRefresh } = useDataRefresh();
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -83,7 +84,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'Images' as any,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
@@ -98,29 +99,19 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
     }
   };
 
-  const uploadImage = async (uri: string) => {
+  const convertImageToBase64 = async (uri: string) => {
     try {
-      const fileExt = uri.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `patient_photos/${fileName}`;
+      // Leer archivo como base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      // Convertir URI a Blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      const { data, error } = await supabase.storage
-        .from("patient-photos")
-        .upload(filePath, blob);
-
-      if (error) throw error;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("patient-photos").getPublicUrl(filePath);
-
-      return publicUrl;
+      // Crear data URL
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+      
+      return dataUrl;
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error converting image:", error);
       throw error;
     }
   };
@@ -144,9 +135,9 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
 
       let photo_url = imageUri;
 
-      // Subir nueva imagen si es una URI local
+      // Convertir imagen a base64 si es una URI local
       if (imageUri && imageUri.startsWith("file://")) {
-        photo_url = await uploadImage(imageUri);
+        photo_url = await convertImageToBase64(imageUri);
       }
 
       const patientData = {
@@ -156,6 +147,8 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
         photo_url,
         updated_at: new Date().toISOString(),
       };
+
+
 
       // Limpiar propiedades undefined
       Object.keys(patientData).forEach(key => {
@@ -180,6 +173,14 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
         if (error) throw error;
         Alert.alert("Éxito", "Paciente creado correctamente");
       }
+
+      // Actualizar el estado local con la nueva URL de la imagen
+      if (photo_url && photo_url !== imageUri) {
+        setImageUri(photo_url);
+      }
+
+      // Trigger refresh para actualizar otras pantallas
+      triggerRefresh();
 
       navigation.goBack();
     } catch (error) {
@@ -216,7 +217,10 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
         <TouchableOpacity onPress={pickImage}>
           <View style={styles.photoContainer}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.photo} />
+              <Image 
+                source={{ uri: imageUri }} 
+                style={styles.photo}
+              />
             ) : (
               <MaterialIcons name="add-a-photo" size={40} color="#94a3b8" />
             )}
@@ -369,7 +373,7 @@ const PatientFormScreen: React.FC<PatientFormScreenProps> = ({
           name="address"
           render={({ field: { value, onChange } }) => (
             <TextInput
-              style={styles.input}
+              style={[styles.input, { height: 100 }]}
               value={value}
               onChangeText={onChange}
               placeholder="Dirección completa"

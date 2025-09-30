@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { DentalRecord, ToothCondition } from '../types';
+import { useDataRefresh } from '../contexts/DataContext';
 
 export const useDentalRecords = (patientId: string | null) => {
+  const { refreshTrigger } = useDataRefresh();
   const [records, setRecords] = useState<DentalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export const useDentalRecords = (patientId: string | null) => {
   // Cargar registros al montar el componente o cambiar patientId
   useEffect(() => {
     fetchDentalRecords();
-  }, [patientId]);
+  }, [patientId, refreshTrigger]);
 
   // Agregar un nuevo registro dental
   const addDentalRecord = async (record: Omit<DentalRecord, 'id' | 'created_at' | 'clinic_id'>) => {

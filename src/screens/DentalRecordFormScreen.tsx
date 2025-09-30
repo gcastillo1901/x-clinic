@@ -21,6 +21,7 @@ import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DentalRecord } from '../types';
 import SearchablePatientPicker from '../components/SearchablePatientPicker';
+import MultipleToothPicker from '../components/MultipleToothPicker';
 
 interface DentalRecordFormScreenProps {
   route: any;
@@ -34,6 +35,7 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
+  const [selectedTeeth, setSelectedTeeth] = useState<number[]>(route.params?.toothNumber ? [route.params.toothNumber] : []);
   const {
     control,
     handleSubmit,
@@ -44,7 +46,7 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
       id: route.params?.record?.id || "",
       patient_id: route.params?.patientId || "",
       clinic_id: session?.user.id || "",
-      tooth_number: route.params?.toothNumber || 1,
+      tooth_numbers: route.params?.toothNumber ? [route.params.toothNumber] : [],
       condition: "",
       notes: "",
       images: [],
@@ -79,7 +81,10 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
   ];
 
   const [showNextAppointmentPicker, setShowNextAppointmentPicker] = useState(false);
+  const [showNextAppointmentTimePicker, setShowNextAppointmentTimePicker] = useState(false);
   const [nextAppointmentDate, setNextAppointmentDate] = useState<Date | null>(null);
+  const [showTreatmentDatePicker, setShowTreatmentDatePicker] = useState(false);
+  const [treatmentDate, setTreatmentDate] = useState<Date>(new Date());
 
   useEffect(() => {
     fetchPatients();
@@ -100,11 +105,75 @@ const DentalRecordFormScreen: React.FC<DentalRecordFormScreenProps> = ({
     }
   };
 
+  const checkAppointmentConflict = async (appointmentDateTime: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('clinic_id', session?.user.id)
+        .eq('date', appointmentDateTime);
+
+      if (error) throw error;
+      return (data || []).length > 0;
+    } catch (error) {
+      console.error('Error checking appointment conflict:', error);
+      return false;
+    }
+  };
+
+  const createAppointment = async (patientId: string, appointmentDateTime: string) => {
+    try {
+      const appointmentData = {
+        patient_id: patientId,
+        clinic_id: session?.user.id,
+        date: appointmentDateTime,
+        duration: 30,
+        reason: 'Seguimiento dental',
+        status: 'scheduled',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert(appointmentData);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+    }
+  };
+
 const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
   setShowNextAppointmentPicker(false);
   if (selectedDate) {
+    const currentTime = nextAppointmentDate || new Date();
+    selectedDate.setHours(currentTime.getHours());
+    selectedDate.setMinutes(currentTime.getMinutes());
     setNextAppointmentDate(selectedDate);
-    setValue('next_appointment', selectedDate.toISOString().split('T')[0]);
+    setValue('next_appointment', selectedDate.toISOString());
+  }
+};
+
+const handleNextAppointmentTimeChange = (event: any, selectedTime?: Date) => {
+  setShowNextAppointmentTimePicker(false);
+  if (selectedTime && nextAppointmentDate) {
+    const newDateTime = new Date(nextAppointmentDate);
+    newDateTime.setHours(selectedTime.getHours());
+    newDateTime.setMinutes(selectedTime.getMinutes());
+    setNextAppointmentDate(newDateTime);
+    setValue('next_appointment', newDateTime.toISOString());
+  }
+};
+
+const handleTreatmentDateChange = (event: any, selectedDate?: Date) => {
+  setShowTreatmentDatePicker(false);
+  if (selectedDate) {
+    setTreatmentDate(selectedDate);
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    setValue('treatment_date', `${year}-${month}-${day}`);
   }
 };
 
@@ -113,34 +182,67 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
     try {
       setLoading(true);
 
-      const recordData = {
+      if (selectedTeeth.length === 0) {
+        Alert.alert("Error", "Debe seleccionar al menos un diente");
+        return;
+      }
+
+      // Crear un registro para cada diente seleccionado
+      const recordsData = selectedTeeth.map(toothNumber => ({
         patient_id: data.patient_id,
         clinic_id: session?.user.id,
-        tooth_number: data.tooth_number,
+        tooth_number: toothNumber,
         condition: data.condition,
         notes: data.notes || null,
         images: data.images || [],
         treatment_date: data.treatment_date,
         next_appointment: data.next_appointment || null,
-      };
+      }));
 
       if (route.params?.record?.id) {
-        // Actualizar registro existente
+        // Actualizar registro existente (solo un diente)
         const { error } = await supabase
           .from("dental_records")
-          .update(recordData)
+          .update(recordsData[0])
           .eq("id", route.params.record.id);
 
         if (error) throw error;
         Alert.alert("Éxito", "Registro dental actualizado correctamente");
       } else {
-        // Crear nuevo registro
+        // Crear nuevos registros
         const { error } = await supabase
           .from("dental_records")
-          .insert(recordData);
+          .insert(recordsData);
 
         if (error) throw error;
-        Alert.alert("Éxito", "Registro dental creado correctamente");
+
+        // Crear cita automáticamente si hay fecha de próxima cita
+        if (data.next_appointment && nextAppointmentDate) {
+          const appointmentDateTime = nextAppointmentDate.toISOString();
+          
+          // Verificar conflictos
+          const hasConflict = await checkAppointmentConflict(appointmentDateTime);
+          
+          if (hasConflict) {
+            Alert.alert(
+              "Conflicto de cita", 
+              "Ya existe una cita programada para esa fecha y hora. ¿Desea continuar sin crear la cita?",
+              [
+                { text: "Continuar", style: "default" },
+                { 
+                  text: "Crear cita de todas formas", 
+                  onPress: async () => {
+                    await createAppointment(data.patient_id, appointmentDateTime);
+                  }
+                }
+              ]
+            );
+          } else {
+            await createAppointment(data.patient_id, appointmentDateTime);
+          }
+        }
+
+        Alert.alert("Éxito", `${selectedTeeth.length} registro(s) dental(es) creado(s) correctamente`);
       }
 
       navigation.goBack();
@@ -197,28 +299,14 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
         )}
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Número de diente *</Text>
-          <Controller
-            control={control}
-            name="tooth_number"
-            rules={{ required: "Este campo es obligatorio" }}
-            render={({ field: { value, onChange } }) => (
-              <>
-                <CustomPicker
-                  items={toothNumbers.map(tooth => ({
-                    label: tooth.label,
-                    value: tooth.value
-                  }))}
-                  selectedValue={value}
-                  onValueChange={onChange}
-                  placeholder="Seleccionar diente..."
-                />
-                {errors.tooth_number && (
-                  <Text style={styles.errorText}>{errors.tooth_number.message}</Text>
-                )}
-              </>
-            )}
+          <Text style={styles.label}>Dientes *</Text>
+          <MultipleToothPicker
+            selectedTeeth={selectedTeeth}
+            onSelectionChange={setSelectedTeeth}
           />
+          {selectedTeeth.length === 0 && (
+            <Text style={styles.errorText}>Debe seleccionar al menos un diente</Text>
+          )}
         </View>
 
         <View style={styles.formGroup}>
@@ -254,13 +342,24 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
             rules={{ required: "Este campo es obligatorio" }}
             render={({ field: { value, onChange } }) => (
               <>
-                <TextInput
-                  style={styles.input}
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="YYYY-MM-DD"
-                  keyboardType="numbers-and-punctuation"
-                />
+                <TouchableOpacity 
+                  style={styles.dateButton}
+                  onPress={() => setShowTreatmentDatePicker(true)}
+                >
+                  <MaterialIcons name="calendar-today" size={20} color="#3b82f6" />
+                  <Text style={styles.dateButtonText}>
+                    {value ? new Date(value + 'T00:00:00').toLocaleDateString('es-ES') : 'Seleccionar fecha'}
+                  </Text>
+                </TouchableOpacity>
+                {showTreatmentDatePicker && (
+                  <DateTimePicker
+                    value={treatmentDate}
+                    mode="date"
+                    display="default"
+                    onChange={handleTreatmentDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
                 {errors.treatment_date && (
                   <Text style={styles.errorText}>{errors.treatment_date.message}</Text>
                 )}
@@ -270,34 +369,57 @@ const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
         </View>
 
         <View style={styles.formGroup}>
-  <Text style={styles.label}>Próxima cita</Text>
-  <Controller
-    control={control}
-    name="next_appointment"
-    render={({ field: { value, onChange } }) => (
-      <>
-        <TouchableOpacity 
-          style={styles.dateButton}
-          onPress={() => setShowNextAppointmentPicker(true)}
-        >
-          <MaterialIcons name="calendar-today" size={20} color="#3b82f6" />
-          <Text style={styles.dateButtonText}>
-            {value ? new Date(value).toLocaleDateString('es-ES') : 'Seleccionar fecha'}
-          </Text>
-        </TouchableOpacity>
-        {showNextAppointmentPicker && (
-          <DateTimePicker
-            value={nextAppointmentDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleNextAppointmentChange}
-            minimumDate={new Date()}
+          <Text style={styles.label}>Próxima cita</Text>
+          <Controller
+            control={control}
+            name="next_appointment"
+            render={({ field: { value, onChange } }) => (
+              <>
+                <View style={styles.dateTimeRow}>
+                  <TouchableOpacity 
+                    style={[styles.dateButton, { flex: 1, marginRight: 10 }]}
+                    onPress={() => setShowNextAppointmentPicker(true)}
+                  >
+                    <MaterialIcons name="calendar-today" size={20} color="#3b82f6" />
+                    <Text style={styles.dateButtonText}>
+                      {nextAppointmentDate ? nextAppointmentDate.toLocaleDateString('es-ES') : 'Fecha'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.dateButton, { flex: 1 }]}
+                    onPress={() => setShowNextAppointmentTimePicker(true)}
+                    disabled={!nextAppointmentDate}
+                  >
+                    <MaterialIcons name="access-time" size={20} color={nextAppointmentDate ? "#3b82f6" : "#94a3b8"} />
+                    <Text style={[styles.dateButtonText, !nextAppointmentDate && { color: '#94a3b8' }]}>
+                      {nextAppointmentDate ? nextAppointmentDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Hora'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {showNextAppointmentPicker && (
+                  <DateTimePicker
+                    value={nextAppointmentDate || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={handleNextAppointmentChange}
+                    minimumDate={new Date()}
+                  />
+                )}
+                
+                {showNextAppointmentTimePicker && nextAppointmentDate && (
+                  <DateTimePicker
+                    value={nextAppointmentDate}
+                    mode="time"
+                    display="default"
+                    onChange={handleNextAppointmentTimeChange}
+                  />
+                )}
+              </>
+            )}
           />
-        )}
-      </>
-    )}
-  />
-</View>
+        </View>
 
 
         <View style={styles.formGroup}>
@@ -430,6 +552,10 @@ dateButtonText: {
   fontSize: 16,
   color: "#1e293b",
   marginLeft: 10,
+},
+dateTimeRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
 },
 });
 

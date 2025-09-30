@@ -14,7 +14,7 @@ import { supabase } from "../services/supabase";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Appointment } from "../types";
 import { useDataRefresh } from "../contexts/DataContext";
-import MonthlyChart from "../components/MonthlyChart";
+import WeeklyChart from "../components/MonthlyChart";
 
 const HomeScreen = () => {
   const navigation = useNavigation<any>();
@@ -84,14 +84,12 @@ const HomeScreen = () => {
         .eq("clinic_id", session?.user.id)
         .gte("payment_date", startOfMonth.toISOString().split('T')[0]);
 
-      console.log('Revenue data:', revenueData);
-      console.log('Revenue error:', revenueError);
+     
 
       // Luego calcular la suma manualmente:
       const totalRevenue =
         revenueData?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
       
-      console.log('Total revenue calculated:', totalRevenue);
 
       // Obtener próximas citas
       const nextWeek = new Date();
@@ -215,7 +213,7 @@ const HomeScreen = () => {
                 },
               ]}
               onPress={() =>
-                navigation.navigate("AppointmentFormScreen", { id: appointment.id })
+                navigation.navigate("AppointmentForm", { appointmentId: appointment.id })
               }
             >
               <View style={styles.appointmentTime}>
@@ -245,8 +243,8 @@ const HomeScreen = () => {
         </View>
       )}
 
-      {/* Gráfica mensual */}
-      <MonthlyChart />
+      {/* Gráfica semanal */}
+      <WeeklyChart />
     </ScrollView>
   );
 };

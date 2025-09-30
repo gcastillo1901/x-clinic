@@ -43,7 +43,9 @@ const DentalRecordsSection: React.FC<DentalRecordsSectionProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Parsear fecha manualmente para evitar problemas de zona horaria
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 

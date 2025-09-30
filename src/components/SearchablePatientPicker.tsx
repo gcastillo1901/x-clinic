@@ -84,8 +84,11 @@ const SearchablePatientPicker: React.FC<SearchablePatientPickerProps> = ({
           value={searchText}
           onChangeText={(text) => {
             setSearchText(text);
-            if (!selectedPatient || text !== selectedPatient.full_name) {
-              setShowDropdown(true);
+            setShowDropdown(true);
+            // Limpiar selección si el texto no coincide exactamente
+            if (selectedPatient && text !== selectedPatient.full_name) {
+              setSelectedPatient(null);
+              onValueChange('');
             }
           }}
           onFocus={() => setShowDropdown(true)}
@@ -167,6 +170,7 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     includeFontPadding: false,
     textAlignVertical: 'center',
+    backgroundColor: 'transparent',
   },
   clearButton: {
     padding: 4,

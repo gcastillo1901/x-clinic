@@ -84,8 +84,13 @@ const SimplePatientPicker: React.FC<SimplePatientPickerProps> = ({
           onChangeText={(text) => {
             setSearchText(text);
             setShowDropdown(text.length > 0);
+            // Limpiar selección si el texto no coincide exactamente
+            if (selectedPatient && text !== selectedPatient.full_name) {
+              setSelectedPatient(null);
+              onValueChange('');
+            }
           }}
-          onFocus={() => setShowDropdown(searchText.length > 0)}
+          onFocus={() => setShowDropdown(true)}
           placeholder={placeholder}
           placeholderTextColor="#94a3b8"
         />
